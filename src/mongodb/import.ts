@@ -15,14 +15,14 @@ export async function importCollections(db: Db, clearCollections: boolean): Prom
   const jsonFiles = files.filter(file => file.endsWith('.json'));
 
   if (jsonFiles.length === 0) {
-    logger.warn('В папке нет JSON-файлов для импорта');
+    logger.warn('No JSON files found in the folder for import');
     return;
   }
 
   for (const file of jsonFiles) {
     const collectionName = getCollectionName(file);
     if (!collectionName) {
-      logger.warn(`Некорректное имя файла: ${file}. Пропускается.`);
+      logger.warn(`Invalid file name: ${file}. Skipping.`);
       continue;
     }
 
@@ -34,21 +34,21 @@ export async function importCollections(db: Db, clearCollections: boolean): Prom
       try {
         data = JSON.parse(fileContent);
       } catch (parseError) {
-        logger.error(`Ошибка парсинга JSON в файле ${file}: ${(parseError as Error).message}`);
+        logger.error(`Error parsing JSON in file ${file}: ${(parseError as Error).message}`);
         continue;
       }
 
       if (!Array.isArray(data)) {
-        logger.warn(`Файл ${file} не содержит массив документов. Пропускается.`);
+        logger.warn(`File ${file} does not contain an array of documents. Skipping.`);
         continue;
       }
 
       const convertedData: OptionalId<Document>[] = data.map(convertExtendedJSON);
-      logger.debug(`Преобразованные данные для ${collectionName}: ${JSON.stringify(convertedData.slice(0, 1), null, 2)}`);
+      logger.debug(`Converted data for ${collectionName}: ${JSON.stringify(convertedData.slice(0, 1), null, 2)}`);
 
       if (clearCollections) {
         await db.collection(collectionName).deleteMany({});
-        logger.info(`Коллекция ${collectionName} очищена`);
+        logger.info(`Collection ${collectionName} cleared`);
       }
 
       let totalInserted = 0;
@@ -56,18 +56,18 @@ export async function importCollections(db: Db, clearCollections: boolean): Prom
         const batch = convertedData.slice(i, i + config.batchSize);
         await db.collection(collectionName).insertMany(batch);
         totalInserted += batch.length;
-        logger.info(`Импортировано ${batch.length} документов в коллекцию ${collectionName} (батч ${i / config.batchSize + 1})`);
+        logger.info(`Imported ${batch.length} documents to collection ${collectionName} (batch ${i / config.batchSize + 1})`);
       }
 
       if (totalInserted > 0) {
-        logger.info(`Успешно импортировано ${totalInserted} документов в коллекцию ${collectionName}`);
+        logger.info(`Successfully imported ${totalInserted} documents to collection ${collectionName}`);
       } else {
-        logger.info(`Файл ${file} пустой, ничего не импортировано`);
+        logger.info(`File ${file} is empty, nothing imported`);
       }
     } catch (error) {
-      logger.error(`Ошибка при импорте файла ${file}: ${(error as Error).message}`);
+      logger.error(`Error importing file ${file}: ${(error as Error).message}`);
     }
   }
 
-  logger.info('Импорт завершён');
+  logger.info('Import completed');
 }

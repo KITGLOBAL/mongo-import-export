@@ -19,43 +19,44 @@ async function promptUser(): Promise<{
     {
       type: 'list',
       name: 'action',
-      message: 'Выберите действие (0 - Экспорт, 1 - Импорт):',
+      message: 'Select action (0 - Export, 1 - Import):',
       choices: [
-        { name: '0 - Экспорт', value: 'export' },
-        { name: '1 - Импорт', value: 'import' },
+        { name: '0 - Export', value: 'export' },
+        { name: '1 - Import', value: 'import' },
       ],
     },
     {
       type: 'input',
       name: 'mongoUri',
-      message: 'Укажите URL подключения к MongoDB:',
+      message: 'Enter MongoDB connection URL:',
       default: config.mongo.uri || undefined,
-      validate: (input: string) => (input ? true : 'URL обязателен'),
+      validate: (input: string) => (input ? true : 'Connection URL is required'),
     },
   ]);
 
   let dbName = config.mongo.dbName;
   let clearCollections = false;
   let clearExportFolder = false;
+
   if (answers.action === 'import') {
     const importAnswers = await inquirer.prompt([
       {
         type: 'confirm',
         name: 'createNewDb',
-        message: 'Создать новую базу данных?',
+        message: 'Create a new database?',
         default: false,
       },
       {
         type: 'input',
         name: 'dbName',
-        message: 'Укажите имя базы данных:',
+        message: 'Enter database name:',
         default: config.mongo.dbName || undefined,
-        validate: (input: string) => (input ? true : 'Имя базы данных обязательно'),
+        validate: (input: string) => (input ? true : 'Database name is required'),
       },
       {
         type: 'confirm',
         name: 'clearCollections',
-        message: 'Очистить коллекции перед импортом?',
+        message: 'Clear collections before importing?',
         default: false,
       },
     ]);
@@ -67,13 +68,13 @@ async function promptUser(): Promise<{
       {
         type: 'confirm',
         name: 'clearExportFolder',
-        message: 'Очистить папку экспорта перед началом?',
+        message: 'Clear export folder before starting?',
         default: false,
       },
     ]);
 
     clearExportFolder = exportAnswers.clearExportFolder;
-    logger.info(`Экспорт будет выполнен в папку "${config.paths.dataFolder}" с файлами, названными по именам коллекций.`);
+    logger.info(`Export will be performed to folder "${config.paths.dataFolder}" with files named after collections.`);
   }
 
   return {
@@ -109,7 +110,7 @@ async function main() {
       await importCollections(db, clearCollections);
     }
   } catch (error) {
-    logger.error(`Ошибка: ${(error as Error).message}`);
+    logger.error(`Error: ${(error as Error).message}`);
     process.exit(1);
   } finally {
     if (client) {

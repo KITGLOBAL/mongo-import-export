@@ -8,7 +8,7 @@ export async function ensureFolderExists(): Promise<void> {
     await fs.access(config.paths.dataFolder);
   } catch {
     await fs.mkdir(config.paths.dataFolder, { recursive: true });
-    logger.info(`Создана папка: ${config.paths.dataFolder}`);
+    logger.info(`Created folder: ${config.paths.dataFolder}`);
   }
 }
 
@@ -18,8 +18,8 @@ export async function clearFolder(): Promise<void> {
     for (const file of files) {
       await fs.unlink(path.join(config.paths.dataFolder, file));
     }
-    logger.info(`Папка ${config.paths.dataFolder} очищена`);
+    logger.info(`Folder ${config.paths.dataFolder} cleared`);
   } catch (error) {
-    logger.warn(`Ошибка при очистке папки ${config.paths.dataFolder}: ${(error as Error).message}`);
+    logger.warn(`Error clearing folder ${config.paths.dataFolder}: ${(error as Error).message}`);
   }
 }
