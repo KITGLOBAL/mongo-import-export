@@ -1,5 +1,11 @@
 # mongo-import-export
 
+![npm](https://img.shields.io/npm/v/@kitapp-developers/mongo-import-export?color=brightgreen&label=npm%20package)
+![Node.js](https://img.shields.io/badge/node-%3E=20.0.0-blue)
+![License](https://img.shields.io/npm/l/@kitapp-developers/mongo-import-export?color=blue)
+![Build](https://img.shields.io/badge/build-passing-brightgreen)
+![Platform](https://img.shields.io/badge/platform-cli-lightgrey)
+
 A powerful and easy-to-use CLI tool to import/export MongoDB collections to/from JSON files. Perfect for quick backups, migrations, and local development.
 
 ## Installation
