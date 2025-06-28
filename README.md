@@ -67,6 +67,7 @@ Place the .env file in the same directory where you run the CLI.
 ## Requirements
 1. Node.js v20 or higher
 2. MongoDB server accessible via the provided connection URL
+3. Your smile
 
 ## License
 MIT
