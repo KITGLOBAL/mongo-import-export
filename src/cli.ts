@@ -36,7 +36,7 @@ async function promptUser(): Promise<{
       type: 'input',
       name: 'mongoUri',
       message: 'Укажите URL подключения к MongoDB:',
-      default: config.mongo.uri,
+      default: config.mongo.uri || undefined, // Убираем default, если пусто
       validate: (input: string) => (input ? true : 'URL обязателен'),
     },
   ]);
@@ -56,8 +56,7 @@ async function promptUser(): Promise<{
         type: 'input',
         name: 'dbName',
         message: 'Укажите имя базы данных:',
-        default: config.mongo.dbName,
-        when: (answers) => !answers.createNewDb,
+        default: config.mongo.dbName || undefined, // Убираем default, если пусто
         validate: (input: string) => (input ? true : 'Имя базы данных обязательно'),
       },
       {
@@ -68,7 +67,7 @@ async function promptUser(): Promise<{
       },
     ]);
 
-    dbName = importAnswers.createNewDb ? config.mongo.dbName : importAnswers.dbName;
+    dbName = importAnswers.dbName;
     clearCollections = importAnswers.clearCollections;
   } else {
     logger.info(`Экспорт будет выполнен в папку "${config.paths.dataFolder}" с файлами, названными по именам коллекций.`);
