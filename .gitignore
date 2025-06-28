@@ -1,0 +1,67 @@
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+package-lock.json
+yarn.lock
+.pnpm-debug.log
+
+# Logs
+logs/
+*.log
+*.log.*
+log/
+
+# Environment variables
+.env
+.env.*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor directories and files
+.idea/
+.vscode/
+*.sublime-project
+*.sublime-workspace
+
+# Coverage and testing
+coverage/
+.nyc_output/
+test-output/
+
+# Build
+dist/
+build/
+.tmp/
+temp/
+
+# PM2 logs and dumps
+pids/
+*.pid
+*.seed
+*.pid.lock
+dump.rdb
+
+# Docker
+docker-compose.override.yml
+
+# Optional cache folders
+.cache/
+.nodemon/
+.next/
+.out/
+
+# TypeScript
+*.tsbuildinfo
+
+# Other
+*.swp
+*.bak
+*.orig
+*.rej
+*.json
+*txt
