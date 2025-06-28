@@ -1,6 +1,5 @@
 #!/usr/bin/env node
 
-import { program } from 'commander';
 import inquirer from 'inquirer';
 import { MongoDBClient } from './mongodb/client.js';
 import { exportCollections } from './mongodb/export.js';
@@ -9,18 +8,12 @@ import { ensureFolderExists, clearFolder } from './utils/file.js';
 import { logger } from './utils/logger.js';
 import { config } from './config.js';
 
-interface CLIOptions {
-  export?: boolean;
-  import?: boolean;
-  clearCollections?: boolean;
-  clearFolder?: boolean;
-}
-
 async function promptUser(): Promise<{
   isExport: boolean;
   mongoUri: string;
   dbName: string;
   clearCollections: boolean;
+  clearExportFolder: boolean;
 }> {
   const answers = await inquirer.prompt([
     {
@@ -36,14 +29,14 @@ async function promptUser(): Promise<{
       type: 'input',
       name: 'mongoUri',
       message: 'Укажите URL подключения к MongoDB:',
-      default: config.mongo.uri || undefined, // Убираем default, если пусто
+      default: config.mongo.uri || undefined,
       validate: (input: string) => (input ? true : 'URL обязателен'),
     },
   ]);
 
   let dbName = config.mongo.dbName;
   let clearCollections = false;
-
+  let clearExportFolder = false;
   if (answers.action === 'import') {
     const importAnswers = await inquirer.prompt([
       {
@@ -56,7 +49,7 @@ async function promptUser(): Promise<{
         type: 'input',
         name: 'dbName',
         message: 'Укажите имя базы данных:',
-        default: config.mongo.dbName || undefined, // Убираем default, если пусто
+        default: config.mongo.dbName || undefined,
         validate: (input: string) => (input ? true : 'Имя базы данных обязательно'),
       },
       {
@@ -70,6 +63,16 @@ async function promptUser(): Promise<{
     dbName = importAnswers.dbName;
     clearCollections = importAnswers.clearCollections;
   } else {
+    const exportAnswers = await inquirer.prompt([
+      {
+        type: 'confirm',
+        name: 'clearExportFolder',
+        message: 'Очистить папку экспорта перед началом?',
+        default: false,
+      },
+    ]);
+
+    clearExportFolder = exportAnswers.clearExportFolder;
     logger.info(`Экспорт будет выполнен в папку "${config.paths.dataFolder}" с файлами, названными по именам коллекций.`);
   }
 
@@ -78,33 +81,12 @@ async function promptUser(): Promise<{
     mongoUri: answers.mongoUri,
     dbName,
     clearCollections,
+    clearExportFolder,
   };
 }
 
 async function main() {
-  program
-    .version('1.0.0')
-    .description('MongoDB Importer/Exporter')
-    .option('--export', 'Export collections to JSON files')
-    .option('--import', 'Import collections from JSON files')
-    .option('--clear-collections', 'Clear collections before import')
-    .option('--clear-folder', 'Clear export folder before export')
-    .parse(process.argv);
-
-  const options: CLIOptions = program.opts();
-  let isExport = options.export || !options.import;
-  let clearCollections = options.clearCollections || false;
-  let clearExportFolder = options.clearFolder || false;
-  let mongoUri = config.mongo.uri;
-  let dbName = config.mongo.dbName;
-
-  if (!options.export && !options.import) {
-    const prompted = await promptUser();
-    isExport = prompted.isExport;
-    mongoUri = prompted.mongoUri;
-    dbName = prompted.dbName;
-    clearCollections = prompted.clearCollections;
-  }
+  const { isExport, mongoUri, dbName, clearCollections, clearExportFolder } = await promptUser();
 
   config.mongo.uri = mongoUri;
   config.mongo.dbName = dbName;

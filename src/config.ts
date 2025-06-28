@@ -4,8 +4,8 @@ dotenv.config();
 
 export const config = {
   mongo: {
-    uri: '',
-    dbName: '',
+    uri: process.env.MONGO_URI || '',
+    dbName: process.env.DB_NAME || '',
   },
   paths: {
     dataFolder: process.env.DATA_FOLDER || './data',
