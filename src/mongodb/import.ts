@@ -67,7 +67,7 @@ async function executeDbOperations(
     if (conflictStrategy === 'upsert') {
       spinner.text = `Upserting ${documents.length} documents in ${collectionName}`;
       operations = documents.map(doc => ({ replaceOne: { filter: { _id: doc._id }, replacement: doc, upsert: true } }));
-    } else { // 'skip'
+    } else {
       spinner.text = `Skipping existing documents while inserting into ${collectionName}`;
       operations = documents.map(doc => ({ updateOne: { filter: { _id: doc._id }, update: { $setOnInsert: doc }, upsert: true } }));
     }
@@ -93,6 +93,7 @@ export async function importCollections(
   const spinner = ora('Starting import...').start();
   const checksumMap = new Map<string, string>();
   let verificationEnabled = true;
+  const importErrors: { file: string; reason: string }[] = [];
 
   try {
     const manifestPath = path.join(config.paths.dataFolder, 'manifest.sha256');
@@ -106,7 +107,7 @@ export async function importCollections(
     if (checksumMap.size > 0) {
       spinner.info('Checksum manifest loaded. Verification is enabled.');
     } else {
-        verificationEnabled = false;
+      verificationEnabled = false;
     }
   } catch (error) {
     spinner.warn('Checksum manifest (manifest.sha256) not found. Proceeding without verification.');
@@ -127,7 +128,9 @@ export async function importCollections(
       if (verificationEnabled) {
         const expectedHash = checksumMap.get(file);
         if (!expectedHash) {
-          spinner.warn(`No checksum found for ${file}. Skipping this file as manifest exists.`);
+          const reason = `No checksum found for ${file}. Skipping this file as manifest exists.`;
+          spinner.warn(reason);
+          importErrors.push({ file, reason });
           continue;
         }
 
@@ -135,8 +138,10 @@ export async function importCollections(
         const actualHash = crypto.createHash('sha256').update(fileContentForHash).digest('hex');
 
         if (actualHash !== expectedHash) {
-          spinner.fail(`Checksum mismatch for ${file}! The file may be corrupt. Skipping.`);
+          const reason = `Checksum mismatch for ${file}! The file may be corrupt. Skipping.`;
+          spinner.fail(reason);
           logger.error(`Checksum mismatch for ${file}. Expected: ${expectedHash}, Got: ${actualHash}`);
+          importErrors.push({ file, reason: 'Checksum mismatch' });
           continue;
         }
         spinner.succeed(`Checksum for ${file} verified.`);
@@ -148,9 +153,24 @@ export async function importCollections(
       const errorMessage = error instanceof Error ? error.message : String(error);
       spinner.fail(`Error importing file ${file}: ${errorMessage}`);
       logger.error(`Error importing file ${file}: ${errorMessage}`);
+      importErrors.push({ file, reason: errorMessage });
     }
   }
 
   spinner.stop();
+
+  if (importErrors.length > 0) {
+    const summaryHeader = '⚠️  IMPORT SUMMARY: Some files failed to import.';
+    console.log(`\n\n${'-'.repeat(summaryHeader.length + 4)}`);
+    logger.warn(summaryHeader);
+    console.log(`${'-'.repeat(summaryHeader.length + 4)}`);
+    for (const { file, reason } of importErrors) {
+      logger.warn(`  - File: ${file}\n    Reason: ${reason}`);
+    }
+    console.log(`${'-'.repeat(summaryHeader.length + 4)}\n`);
+  } else {
+    logger.info('All files were verified and processed successfully.');
+  }
+
   logger.info('Import completed');
 }
