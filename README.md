@@ -1,6 +1,7 @@
 # mongo-import-export
 
 ![npm](https://img.shields.io/npm/v/@kitapp-developers/mongo-import-export?color=brightgreen&label=npm%20package)
+[![downloads](https://img.shields.io/npm/dw/@kitapp-developers/mongo-import-export.svg?label=downloads)](https://www.npmjs.com/package/@kitapp-developers/mongo-import-export)
 ![Node.js](https://img.shields.io/badge/node-%3E=20.0.0-blue)
 ![License](https://img.shields.io/npm/l/@kitapp-developers/mongo-import-export?color=blue)
 ![Build](https://img.shields.io/badge/build-passing-brightgreen)
