@@ -50,9 +50,7 @@ export function convertCSVRow(row: { [key: string]: any }): Document {
       result[key] = value;
       continue;
     }
-
     const stringValue = String(value);
-    
     if (key === '_id' && isValidObjectId(stringValue)) {
         result[key] = new ObjectId(stringValue);
         continue;
@@ -61,7 +59,6 @@ export function convertCSVRow(row: { [key: string]: any }): Document {
         result[key] = new Date(stringValue);
         continue;
     }
-
     if (isValidObjectId(stringValue)) {
       result[key] = new ObjectId(stringValue);
     } else if (isValidDate(stringValue)) {
@@ -80,4 +77,27 @@ export function convertCSVRow(row: { [key: string]: any }): Document {
     }
   }
   return result;
+}
+
+/**
+ * @param documents array docs fron MongoDB.
+ * @returns
+ */
+export function prepareForCSVExport(documents: Document[]): Document[] {
+  return documents.map(doc => {
+    const newDoc: Document = {};
+    for (const key in doc) {
+      const value = doc[key];
+      if (value instanceof ObjectId) {
+        newDoc[key] = value.toHexString();
+      } else if (value instanceof Date) {
+        newDoc[key] = value.toISOString();
+      } else if (typeof value === 'object' && value !== null) {
+        newDoc[key] = JSON.stringify(value);
+      } else {
+        newDoc[key] = value;
+      }
+    }
+    return newDoc;
+  });
 }

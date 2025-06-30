@@ -1,5 +1,5 @@
 import * as crypto from 'crypto';
-import { Db, Document, ObjectId } from 'mongodb';
+import { Db, Document } from 'mongodb';
 import { promises as fs } from 'fs';
 import * as path from 'path';
 import { logger } from '../utils/logger.js';
@@ -7,26 +7,7 @@ import { config } from '../config.js';
 import ora from 'ora';
 import { DataFormat } from './import.js';
 import Papa from 'papaparse';
-
-function preprocessForCSV(documents: Document[]): Document[] {
-  return documents.map(doc => {
-    const newDoc: Document = {};
-    for (const key in doc) {
-      const value = doc[key];
-      if (value instanceof ObjectId) {
-        newDoc[key] = value.toHexString();
-      } else if (value instanceof Date) {
-        newDoc[key] = value.toISOString();
-      }
-      else if (typeof value === 'object' && value !== null) {
-        newDoc[key] = JSON.stringify(value);
-      } else {
-        newDoc[key] = value;
-      }
-    }
-    return newDoc;
-  });
-}
+import { prepareForCSVExport } from './convert.js';
 
 export async function exportCollections(db: Db, format: DataFormat): Promise<void> {
   const collections = await db.listCollections().toArray();
@@ -57,7 +38,7 @@ export async function exportCollections(db: Db, format: DataFormat): Promise<voi
 
       switch (format) {
         case 'csv':
-          const preprocessedDocs = preprocessForCSV(documents);
+          const preprocessedDocs = prepareForCSVExport(documents);
           fileContent = Papa.unparse(preprocessedDocs);
           break;
 
