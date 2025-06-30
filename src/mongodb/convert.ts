@@ -26,7 +26,17 @@ export function convertExtendedJSON(doc: any): any {
 
     const result: { [key: string]: any } = {};
     for (const [key, value] of Object.entries(doc)) {
-      result[key] = convertExtendedJSON(value);
+      if (typeof value === 'string') {
+        if (key === '_id' && isValidObjectId(value)) {
+          result[key] = new ObjectId(value);
+        } else if (isValidDate(value)) {
+          result[key] = new Date(value);
+        } else {
+          result[key] = value;
+        }
+      } else {
+        result[key] = convertExtendedJSON(value);
+      }
     }
     return result;
   }
