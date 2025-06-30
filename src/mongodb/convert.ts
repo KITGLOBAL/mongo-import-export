@@ -1,4 +1,4 @@
-import { ObjectId } from 'mongodb';
+import { ObjectId, Document } from 'mongodb';
 import { logger } from '../utils/logger.js';
 import { isValidObjectId, isValidDate } from '../utils/validate.js';
 
@@ -26,21 +26,48 @@ export function convertExtendedJSON(doc: any): any {
 
     const result: { [key: string]: any } = {};
     for (const [key, value] of Object.entries(doc)) {
-      if ((key === '_id' || key === 'theme_id') && typeof value === 'string' && isValidObjectId(value)) {
-        logger.debug(`Converting string ${key}: ${value} to ObjectId`);
-        result[key] = new ObjectId(value);
-      } else if (
-        (key === 'createdAt' || key === 'updatedAt' || key === 'last_modified_dt') &&
-        typeof value === 'string' &&
-        isValidDate(value)
-      ) {
-        logger.debug(`Converting string ${key}: ${value} to Date`);
-        result[key] = new Date(value);
-      } else {
-        result[key] = convertExtendedJSON(value);
-      }
+      result[key] = convertExtendedJSON(value);
     }
     return result;
   }
   return doc;
+}
+
+export function convertCSVRow(row: { [key: string]: any }): Document {
+  const result: Document = {};
+  for (let [key, value] of Object.entries(row)) {
+    if (value === null || value === '') {
+      result[key] = value;
+      continue;
+    }
+
+    const stringValue = String(value);
+    
+    if (key === '_id' && isValidObjectId(stringValue)) {
+        result[key] = new ObjectId(stringValue);
+        continue;
+    }
+    if ((key.endsWith('At') || key.endsWith('Dt')) && isValidDate(stringValue)) {
+        result[key] = new Date(stringValue);
+        continue;
+    }
+
+    if (isValidObjectId(stringValue)) {
+      result[key] = new ObjectId(stringValue);
+    } else if (isValidDate(stringValue)) {
+        result[key] = new Date(stringValue);
+    } else if (!isNaN(Number(stringValue)) && stringValue.trim() !== '') {
+        result[key] = Number(stringValue);
+    } else if (stringValue.toLowerCase() === 'true' || stringValue.toLowerCase() === 'false') {
+        result[key] = (stringValue.toLowerCase() === 'true');
+    } else {
+      try {
+        const parsed = JSON.parse(stringValue);
+        result[key] = convertExtendedJSON(parsed);
+      } catch (e) {
+        result[key] = stringValue;
+      }
+    }
+  }
+  return result;
 }

@@ -1,12 +1,11 @@
-import { Db, Document, OptionalId, AnyBulkWriteOperation, ObjectId } from 'mongodb';
+import { Db, Document, OptionalId, AnyBulkWriteOperation } from 'mongodb';
 import { promises as fs } from 'fs';
 import * as path from 'path';
 import { logger } from '../utils/logger.js';
 import { config } from '../config.js';
-import { convertExtendedJSON } from './convert.js';
+import { convertExtendedJSON, convertCSVRow } from './convert.js';
 import ora from 'ora';
 import Papa from 'papaparse';
-import { isValidObjectId, isValidDate } from '../utils/validate.js';
 
 export type ConflictStrategy = 'upsert' | 'skip' | 'insert';
 export type DataFormat = 'json' | 'csv';
@@ -14,45 +13,6 @@ export type DataFormat = 'json' | 'csv';
 function getCollectionName(fileName: string): string | null {
   const match = fileName.match(/^(.+)\.(json|csv)$/);
   return match ? match[1] : null;
-}
-
-function convertCSVRow(row: { [key: string]: any }): Document {
-  const result: Document = {};
-  for (let [key, value] of Object.entries(row)) {
-    if (value === null || value === '') {
-      result[key] = value;
-      continue;
-    }
-
-    const stringValue = String(value);
-    
-    if (key === '_id' && isValidObjectId(stringValue)) {
-        result[key] = new ObjectId(stringValue);
-        continue;
-    }
-    if ((key.endsWith('At') || key.endsWith('Dt')) && isValidDate(stringValue)) {
-        result[key] = new Date(stringValue);
-        continue;
-    }
-
-    if (isValidObjectId(stringValue)) {
-      result[key] = new ObjectId(stringValue);
-    } else if (isValidDate(stringValue)) {
-        result[key] = new Date(stringValue);
-    } else if (!isNaN(Number(stringValue)) && stringValue.trim() !== '') {
-        result[key] = Number(stringValue);
-    } else if (stringValue.toLowerCase() === 'true' || stringValue.toLowerCase() === 'false') {
-        result[key] = (stringValue.toLowerCase() === 'true');
-    } else {
-      try {
-        const parsed = JSON.parse(stringValue);
-        result[key] = convertExtendedJSON(parsed);
-      } catch (e) {
-        result[key] = stringValue;
-      }
-    }
-  }
-  return result;
 }
 
 export async function importCollections(
@@ -91,6 +51,7 @@ export async function importCollections(
           if (parsed.errors.length) {
             logger.warn(`CSV parsing errors in ${file}: ${parsed.errors.map(e => e.message).join(', ')}`);
           }
+          // --- ИЗМЕНЕНО: теперь мы просто вызываем импортированную функцию ---
           documents = parsed.data.map(row => convertCSVRow(row as { [key: string]: any }));
           break;
         }
@@ -108,6 +69,7 @@ export async function importCollections(
         }
       }
       
+      // ... остальная часть файла без изменений ...
       if (clearCollections) {
         spinner.text = `Clearing collection: ${collectionName}`;
         await db.collection(collectionName).deleteMany({});
