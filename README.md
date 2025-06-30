@@ -108,7 +108,7 @@ DATA_FOLDER=./data
 # Number of documents per import batch
 BATCH_SIZE=1000
 # Logging level (e.g., debug, info, warn, error)
-LOG_LEVEL=debug
+LOG_LEVEL=info
 # Log file path
 LOG_FILE=mongo_script_log.txt
 ```
