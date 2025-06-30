@@ -1,0 +1,4 @@
+DATA_FOLDER=./data
+BATCH_SIZE=1000
+LOG_LEVEL=info
+LOG_FILE=mongo_script_log.txt
