@@ -3,7 +3,7 @@
 import inquirer from 'inquirer';
 import { MongoDBClient } from './mongodb/client.js';
 import { exportCollections } from './mongodb/export.js';
-import { importCollections } from './mongodb/import.js';
+import { importCollections, ConflictStrategy } from './mongodb/import.js';
 import { ensureFolderExists, clearFolder } from './utils/file.js';
 import { logger } from './utils/logger.js';
 import { config } from './config.js';
@@ -14,6 +14,7 @@ async function promptUser(): Promise<{
   dbName: string;
   clearCollections: boolean;
   clearExportFolder: boolean;
+  conflictStrategy: ConflictStrategy;
 }> {
   const answers = await inquirer.prompt([
     {
@@ -37,6 +38,7 @@ async function promptUser(): Promise<{
   let dbName = config.mongo.dbName;
   let clearCollections = false;
   let clearExportFolder = false;
+  let conflictStrategy: ConflictStrategy = 'insert'; // Значение по умолчанию
 
   if (answers.action === 'import') {
     const importAnswers = await inquirer.prompt([
@@ -56,13 +58,27 @@ async function promptUser(): Promise<{
       {
         type: 'confirm',
         name: 'clearCollections',
-        message: 'Clear collections before importing?',
+        message: 'Clear collections before importing? (This will ignore conflict strategy)',
         default: false,
+      },
+      {
+        type: 'list',
+        name: 'conflictStrategy',
+        message: 'Select conflict resolution strategy:',
+        choices: [
+          { name: 'Insert (fail on duplicates)', value: 'insert' },
+          { name: 'Upsert (replace existing, insert new)', value: 'upsert' },
+          { name: 'Skip (ignore duplicates)', value: 'skip' },
+        ],
+        when: (answers) => !answers.clearCollections,
       },
     ]);
 
     dbName = importAnswers.dbName;
     clearCollections = importAnswers.clearCollections;
+    if (!clearCollections) {
+      conflictStrategy = importAnswers.conflictStrategy;
+    }
   } else {
     const exportAnswers = await inquirer.prompt([
       {
@@ -83,11 +99,12 @@ async function promptUser(): Promise<{
     dbName,
     clearCollections,
     clearExportFolder,
+    conflictStrategy,
   };
 }
 
 async function main() {
-  const { isExport, mongoUri, dbName, clearCollections, clearExportFolder } = await promptUser();
+  const { isExport, mongoUri, dbName, clearCollections, clearExportFolder, conflictStrategy } = await promptUser();
 
   config.mongo.uri = mongoUri;
   config.mongo.dbName = dbName;
@@ -107,7 +124,7 @@ async function main() {
     if (isExport) {
       await exportCollections(db);
     } else {
-      await importCollections(db, clearCollections);
+      await importCollections(db, clearCollections, conflictStrategy);
     }
   } catch (error) {
     logger.error(`Error: ${(error as Error).message}`);

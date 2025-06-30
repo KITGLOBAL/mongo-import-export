@@ -1,6 +1,4 @@
-// src/mongodb/import.ts
-
-import { Db, Document, OptionalId } from 'mongodb';
+import { Db, Document, OptionalId, AnyBulkWriteOperation } from 'mongodb';
 import { promises as fs } from 'fs';
 import * as path from 'path';
 import { logger } from '../utils/logger.js';
@@ -8,12 +6,18 @@ import { config } from '../config.js';
 import { convertExtendedJSON } from './convert.js';
 import ora from 'ora';
 
+export type ConflictStrategy = 'upsert' | 'skip' | 'insert';
+
 function getCollectionName(fileName: string): string | null {
   const match = fileName.match(/^(.+)\.json$/);
   return match ? match[1] : null;
 }
 
-export async function importCollections(db: Db, clearCollections: boolean): Promise<void> {
+export async function importCollections(
+  db: Db,
+  clearCollections: boolean,
+  conflictStrategy: ConflictStrategy = 'insert',
+): Promise<void> {
   const files = await fs.readdir(config.paths.dataFolder);
   const jsonFiles = files.filter(file => file.endsWith('.json'));
 
@@ -61,15 +65,40 @@ export async function importCollections(db: Db, clearCollections: boolean): Prom
         logger.info(`Collection ${collectionName} cleared`);
       }
 
-      let totalInserted = 0;
       if (convertedData.length > 0) {
-        for (let i = 0; i < convertedData.length; i += config.batchSize) {
-          const batch = convertedData.slice(i, i + config.batchSize);
-          spinner.text = `Importing ${batch.length} documents to collection ${collectionName} (batch ${i / config.batchSize + 1})`;
-          await db.collection(collectionName).insertMany(batch);
-          totalInserted += batch.length;
+        if (clearCollections || conflictStrategy === 'insert') {
+          spinner.text = `Inserting ${convertedData.length} documents into ${collectionName}`;
+          await db.collection(collectionName).insertMany(convertedData);
+          spinner.succeed(`Successfully inserted ${convertedData.length} documents to collection ${collectionName}`);
+        } else {
+          let operations: AnyBulkWriteOperation[];
+
+          if (conflictStrategy === 'upsert') {
+            spinner.text = `Upserting ${convertedData.length} documents in ${collectionName}`;
+            operations = convertedData.map(doc => ({
+              replaceOne: {
+                filter: { _id: doc._id },
+                replacement: doc,
+                upsert: true,
+              },
+            }));
+          } else { // 'skip'
+            spinner.text = `Skipping existing documents while inserting into ${collectionName}`;
+            operations = convertedData.map(doc => ({
+              updateOne: {
+                filter: { _id: doc._id },
+                update: { $setOnInsert: doc },
+                upsert: true,
+              },
+            }));
+          }
+
+          const result = await db.collection(collectionName).bulkWrite(operations);
+          const { insertedCount, modifiedCount, upsertedCount } = result;
+          spinner.succeed(
+            `Import to ${collectionName} complete. Inserted: ${insertedCount + upsertedCount}, Modified: ${modifiedCount}.`,
+          );
         }
-        spinner.succeed(`Successfully imported ${totalInserted} documents to collection ${collectionName}`);
       } else {
         spinner.info(`File ${file} is empty, nothing imported`);
         logger.info(`File ${file} is empty, nothing imported`);
