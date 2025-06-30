@@ -64,4 +64,5 @@ docker-compose.override.yml
 *.orig
 *.rej
 *.json
-*txt
+*.txt
+*.csv

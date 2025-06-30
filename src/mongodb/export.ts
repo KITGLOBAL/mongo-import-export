@@ -1,13 +1,33 @@
-// src/mongodb/export.ts
-
-import { Db } from 'mongodb';
+import { Db, Document, ObjectId } from 'mongodb';
 import { promises as fs } from 'fs';
 import * as path from 'path';
 import { logger } from '../utils/logger.js';
 import { config } from '../config.js';
 import ora from 'ora';
+import { DataFormat } from './import.js';
+import Papa from 'papaparse';
 
-export async function exportCollections(db: Db): Promise<void> {
+function preprocessForCSV(documents: Document[]): Document[] {
+  return documents.map(doc => {
+    const newDoc: Document = {};
+    for (const key in doc) {
+      const value = doc[key];
+      if (value instanceof ObjectId) {
+        newDoc[key] = value.toHexString();
+      } else if (value instanceof Date) {
+        newDoc[key] = value.toISOString();
+      }
+      else if (typeof value === 'object' && value !== null) {
+        newDoc[key] = JSON.stringify(value);
+      } else {
+        newDoc[key] = value;
+      }
+    }
+    return newDoc;
+  });
+}
+
+export async function exportCollections(db: Db, format: DataFormat): Promise<void> {
   const collections = await db.listCollections().toArray();
   if (collections.length === 0) {
     logger.warn('No collections found in the database for export');
@@ -21,7 +41,7 @@ export async function exportCollections(db: Db): Promise<void> {
   for (const { name } of collections) {
     spinner.text = `Exporting collection: ${name}`;
     const collection = db.collection(name);
-    const fileName = `${name}.json`;
+    const fileName = `${name}.${format}`;
     const filePath = path.join(config.paths.dataFolder, fileName);
 
     try {
@@ -31,9 +51,24 @@ export async function exportCollections(db: Db): Promise<void> {
         continue;
       }
 
-      await fs.writeFile(filePath, JSON.stringify(documents, null, 2));
+      let fileContent: string;
+
+      switch (format) {
+        case 'csv':
+          const preprocessedDocs = preprocessForCSV(documents);
+          fileContent = Papa.unparse(preprocessedDocs);
+          break;
+
+        case 'json':
+        default:
+          fileContent = JSON.stringify(documents, null, 2);
+          break;
+      }
+
+      await fs.writeFile(filePath, fileContent);
       spinner.succeed(`Exported ${documents.length} documents from collection ${name} to ${fileName}`);
       logger.debug(`Exported data for ${name}: ${JSON.stringify(documents.slice(0, 1), null, 2)}`);
+
     } catch (error) {
       spinner.fail(`Error exporting collection ${name}: ${(error as Error).message}`);
       logger.error(`Error exporting collection ${name}: ${(error as Error).message}`);

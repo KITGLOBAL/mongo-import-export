@@ -3,33 +3,34 @@ import { logger } from '../utils/logger.js';
 import { config } from '../config.js';
 
 export class MongoDBClient {
-  private client: MongoClient;
+  public client: MongoClient;
 
-  constructor() {
-    this.client = new MongoClient(config.mongo.uri);
+  constructor(uri?: string) {
+    this.client = new MongoClient(uri || config.mongo.uri);
   }
 
   async connect(): Promise<Db> {
     await this.client.connect();
     logger.info('Connected to MongoDB');
     const db = this.client.db(config.mongo.dbName);
-    await this.ensureDatabaseExists(db);
     return db;
+  }
+
+  async listDatabases(): Promise<string[]> {
+    try {
+      const adminDb = this.client.db('admin').admin();
+      const dbs = await adminDb.listDatabases();
+      return dbs.databases
+        .map((db: { name: string }) => db.name)
+        .filter(name => !['admin', 'local', 'config'].includes(name));
+    } catch (error) {
+      logger.error(`Failed to list databases: ${(error as Error).message}`);
+      return [];
+    }
   }
 
   async close(): Promise<void> {
     await this.client.close();
     logger.info('MongoDB connection closed');
-  }
-
-  private async ensureDatabaseExists(db: Db): Promise<void> {
-    const adminDb = this.client.db('admin');
-    const dbs = await adminDb.command({ listDatabases: 1 });
-    const dbExists = dbs.databases.some((d: { name: string }) => d.name === config.mongo.dbName);
-    if (dbExists) {
-      logger.info(`Database ${config.mongo.dbName} already exists`);
-    } else {
-      logger.info(`Database ${config.mongo.dbName} will be created when data is added`);
-    }
   }
 }
