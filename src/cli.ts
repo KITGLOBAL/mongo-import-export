@@ -5,7 +5,7 @@ import ora from 'ora';
 import { URL } from 'url';
 import { MongoDBClient } from './mongodb/client.js';
 import { exportCollections } from './mongodb/export.js';
-import { importCollections, ConflictStrategy, DataFormat } from './mongodb/import.js';
+import { importCollections, DataFormat } from './mongodb/import.js';
 import { ensureFolderExists, clearFolder } from './utils/file.js';
 import { logger } from './utils/logger.js';
 import { config } from './config.js';
@@ -60,9 +60,9 @@ async function main() {
         if (url.pathname && url.pathname.length > 1) {
           dbName = url.pathname.substring(1).split('/')[0];
         }
-      } catch (e) {}
+      } catch (e) {  }
 
-      client = new MongoDBClient(); 
+      client = new MongoDBClient();
       await client.client.connect();
 
       if (!dbName) {
@@ -93,6 +93,7 @@ async function main() {
           dbName = dbAnswer.dbName;
         }
       }
+      
       if (!dbName) {
         throw new Error("Database name was not selected. Aborting.");
       }

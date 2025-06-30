@@ -1,3 +1,4 @@
+import * as crypto from 'crypto';
 import { Db, Document, ObjectId } from 'mongodb';
 import { promises as fs } from 'fs';
 import * as path from 'path';
@@ -37,6 +38,7 @@ export async function exportCollections(db: Db, format: DataFormat): Promise<voi
   logger.info(`Found collections: ${collections.map(c => c.name).join(', ')}`);
 
   const spinner = ora('Starting export...').start();
+  const checksums: { [key: string]: string } = {};
 
   for (const { name } of collections) {
     spinner.text = `Exporting collection: ${name}`;
@@ -65,14 +67,27 @@ export async function exportCollections(db: Db, format: DataFormat): Promise<voi
           break;
       }
 
+      const hash = crypto.createHash('sha256');
+      hash.update(fileContent);
+      checksums[fileName] = hash.digest('hex');
+
       await fs.writeFile(filePath, fileContent);
       spinner.succeed(`Exported ${documents.length} documents from collection ${name} to ${fileName}`);
-      logger.debug(`Exported data for ${name}: ${JSON.stringify(documents.slice(0, 1), null, 2)}`);
 
     } catch (error) {
       spinner.fail(`Error exporting collection ${name}: ${(error as Error).message}`);
       logger.error(`Error exporting collection ${name}: ${(error as Error).message}`);
     }
+  }
+
+  if (Object.keys(checksums).length > 0) {
+    spinner.text = 'Generating checksum file...';
+    const manifestPath = path.join(config.paths.dataFolder, 'manifest.sha256');
+    const manifestContent = Object.entries(checksums)
+      .map(([file, hash]) => `${hash}  ${file}`)
+      .join('\n');
+    await fs.writeFile(manifestPath, manifestContent);
+    spinner.succeed('Checksum file manifest.sha256 generated.');
   }
 
   spinner.stop();

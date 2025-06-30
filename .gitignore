@@ -66,3 +66,4 @@ docker-compose.override.yml
 *.json
 *.txt
 *.csv
+*.sha256
