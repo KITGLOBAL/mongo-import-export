@@ -51,7 +51,6 @@ export async function importCollections(
           if (parsed.errors.length) {
             logger.warn(`CSV parsing errors in ${file}: ${parsed.errors.map(e => e.message).join(', ')}`);
           }
-          // --- ИЗМЕНЕНО: теперь мы просто вызываем импортированную функцию ---
           documents = parsed.data.map(row => convertCSVRow(row as { [key: string]: any }));
           break;
         }
@@ -68,8 +67,7 @@ export async function importCollections(
           break;
         }
       }
-      
-      // ... остальная часть файла без изменений ...
+    
       if (clearCollections) {
         spinner.text = `Clearing collection: ${collectionName}`;
         await db.collection(collectionName).deleteMany({});
