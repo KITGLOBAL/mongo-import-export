@@ -1,75 +1,79 @@
 import * as crypto from 'crypto';
-import { Db, Document } from 'mongodb';
+import { Db } from 'mongodb';
 import { promises as fs } from 'fs';
 import * as path from 'path';
 import { logger } from '../utils/logger.js';
-import { config } from '../config.js';
 import cliProgress from 'cli-progress';
+import colors from 'ansi-colors';
 import { DataFormat } from './import.js';
+import { config } from '../config.js';
 import Papa from 'papaparse';
 import { prepareForCSVExport } from './convert.js';
 
 export async function exportCollections(db: Db, format: DataFormat): Promise<void> {
   const collections = await db.listCollections().toArray();
+
   if (collections.length === 0) {
     logger.warn('No collections found in the database for export');
     return;
   }
 
   logger.info(`Found collections: ${collections.map(c => c.name).join(', ')}`);
-  
-  const progressBar = new cliProgress.SingleBar({
-    format: 'Exporting | {bar} | {collection} | {value}/{total} collections',
-    barCompleteChar: '\u2588',
-    barIncompleteChar: '\u2591',
+
+  console.log('\nStarting export process...');
+  const multibar = new cliProgress.MultiBar({
+    clearOnComplete: false,
     hideCursor: true,
-  });
+    format: ` {bar} | ${colors.cyan('{collection}')} | {value}/{total} Docs | Speed: ${colors.yellow('{speed}')} docs/s`,
+  }, cliProgress.Presets.shades_classic);
 
-  progressBar.start(collections.length, 0, { collection: 'N/A' });
-  
   const checksums: { [key: string]: string } = {};
-
-  for (const { name } of collections) {
-    progressBar.update({ collection: name });
+  await Promise.all(collections.map(async ({ name }) => {
     const collection = db.collection(name);
+    const totalDocuments = await collection.countDocuments();
+    
+    if (totalDocuments === 0) {
+      logger.info(`Collection ${name} is empty, skipping.`);
+      return;
+    }
+
+    const bar = multibar.create(totalDocuments, 0, { collection: name, speed: '0.00' });
+    const startTime = Date.now();
+
     const fileName = `${name}.${format}`;
     const filePath = path.join(config.paths.dataFolder, fileName);
-
+    
     try {
-      const documents = await collection.find({}).toArray();
-      if (documents.length === 0) {
-        logger.info(`Collection ${name} is empty, no file created`);
-        progressBar.increment();
-        continue;
+      const cursor = collection.find({});
+      const documents = [];
+      
+      for await (const doc of cursor) {
+        documents.push(doc);
+        const elapsedTime = (Date.now() - startTime) / 1000;
+        const speed = (documents.length / (elapsedTime || 1)).toFixed(2);
+        bar.update(documents.length, { speed });
       }
 
       let fileContent: string;
-
-      switch (format) {
-        case 'csv':
-          const preprocessedDocs = prepareForCSVExport(documents);
-          fileContent = Papa.unparse(preprocessedDocs);
-          break;
-
-        case 'json':
-        default:
-          fileContent = JSON.stringify(documents, null, 2);
-          break;
+      if (format === 'csv') {
+        fileContent = Papa.unparse(prepareForCSVExport(documents));
+      } else {
+        fileContent = JSON.stringify(documents, null, 2);
       }
 
       const hash = crypto.createHash('sha256').update(fileContent);
       checksums[fileName] = hash.digest('hex');
 
       await fs.writeFile(filePath, fileContent);
-      logger.info(`Exported ${documents.length} documents from collection ${name} to ${fileName}`);
+      logger.info(`Exported ${documents.length} documents from ${name}`);
 
     } catch (error) {
       logger.error(`Error exporting collection ${name}: ${(error as Error).message}`);
+      multibar.remove(bar);
     }
-    progressBar.increment();
-  }
-  
-  progressBar.stop();
+  }));
+
+  multibar.stop();
 
   if (Object.keys(checksums).length > 0) {
     logger.info('Generating checksum file...');

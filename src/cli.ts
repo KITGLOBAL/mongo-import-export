@@ -14,27 +14,28 @@ async function promptPrimaryActions(): Promise<{
   mongoUri: string;
   format: DataFormat;
 }> {
+  console.log('Welcome to the MongoDB Import/Export Tool!');
   const answers = await inquirer.prompt([
     {
       type: 'list',
       name: 'action',
-      message: 'Select action (0 - Export, 1 - Import):',
+      message: 'What would you like to do?',
       choices: [
-        { name: '0 - Export', value: 'export' },
-        { name: '1 - Import', value: 'import' },
+        { name: 'Export data from a database', value: 'export' },
+        { name: 'Import data into a database', value: 'import' },
       ],
     },
     {
       type: 'input',
       name: 'mongoUri',
-      message: 'Enter MongoDB connection URL:',
-      default: config.mongo.uri || undefined,
-      validate: (input: string) => (input ? true : 'Connection URL is required'),
+      message: 'Enter your MongoDB connection URI:',
+      default: config.mongo.uri || 'mongodb://localhost:27017',
+      validate: (input: string) => (input ? true : 'Connection URI is required'),
     },
     {
       type: 'list',
       name: 'format',
-      message: 'Select data format:',
+      message: 'Select the data format:',
       choices: ['json', 'csv'],
       default: 'json',
     },
@@ -59,7 +60,8 @@ async function main() {
         if (url.pathname && url.pathname.length > 1) {
           dbName = url.pathname.substring(1).split('/')[0];
         }
-      } catch (e) {  }
+      } catch (e) {
+      }
 
       client = new MongoDBClient();
       await client.client.connect();
@@ -91,34 +93,34 @@ async function main() {
           dbName = dbAnswer.dbName;
         }
       }
-      
+
       if (!dbName) {
-        throw new Error("Database name was not selected. Aborting.");
+        throw new Error('Database name was not selected. Aborting.');
       }
-      
+
       config.mongo.dbName = dbName;
-      
+
       const db = client.client.db(dbName);
 
       const { clearExportFolder } = await inquirer.prompt([
         {
           type: 'confirm',
           name: 'clearExportFolder',
-          message: 'Clear export folder before starting?',
+          message: `Clear export folder (${config.paths.dataFolder}) before starting?`,
           default: false,
         },
       ]);
-      
+
       if (clearExportFolder) await clearFolder();
-      
+
       await exportCollections(db, format);
 
-    } else {
+    } else { // Import
       const { dbName, clearCollections, conflictStrategy } = await inquirer.prompt([
         {
           type: 'input',
           name: 'dbName',
-          message: 'Enter database name to import to:',
+          message: 'Enter the database name to import to:',
           default: config.mongo.dbName || undefined,
           validate: (input: string) => (input ? true : 'Database name is required'),
         },
@@ -137,10 +139,10 @@ async function main() {
             { name: 'Upsert (replace existing, insert new)', value: 'upsert' },
             { name: 'Skip (ignore duplicates)', value: 'skip' },
           ],
-          when: (answers) => !answers.clearCollections,
+          when: answers => !answers.clearCollections,
         },
       ]);
-      
+
       config.mongo.dbName = dbName;
       client = new MongoDBClient();
       const db = await client.connect();
@@ -148,13 +150,13 @@ async function main() {
       await importCollections(db, clearCollections, conflictStrategy || 'insert', format);
     }
   } catch (error) {
-    logger.error(`An error occurred: ${(error as Error).message}`);
+    logger.error(`An unhandled error occurred: ${(error as Error).message}`);
     process.exitCode = 1;
   } finally {
-    flushLogs(); 
     if (client) {
       await client.close();
     }
+    flushLogs();
   }
 }
 
