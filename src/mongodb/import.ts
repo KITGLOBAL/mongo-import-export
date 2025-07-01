@@ -5,7 +5,7 @@ import * as path from 'path';
 import { logger } from '../utils/logger.js';
 import { config } from '../config.js';
 import { convertExtendedJSON, convertCSVRow } from './convert.js';
-import ora, { Ora } from 'ora';
+import cliProgress from 'cli-progress';
 import Papa from 'papaparse';
 
 export type ConflictStrategy = 'upsert' | 'skip' | 'insert';
@@ -39,40 +39,39 @@ async function executeDbOperations(
   collectionName: string,
   documents: OptionalId<Document>[],
   clearCollections: boolean,
-  conflictStrategy: ConflictStrategy,
-  spinner: Ora
+  conflictStrategy: ConflictStrategy
 ) {
   if (documents.length === 0) {
-    spinner.info(`File for ${collectionName} is empty, nothing imported`);
+    logger.info(`File for ${collectionName} is empty, nothing imported`);
     return;
   }
   
   const collection = db.collection(collectionName);
 
   if (clearCollections) {
-    spinner.text = `Clearing collection: ${collectionName}`;
+    logger.debug(`Clearing collection: ${collectionName}`);
     await collection.deleteMany({});
     logger.info(`Collection ${collectionName} cleared`);
   }
 
   if (clearCollections || conflictStrategy === 'insert') {
-    spinner.text = `Inserting ${documents.length} documents into ${collectionName}`;
+    logger.debug(`Inserting ${documents.length} documents into ${collectionName}`);
     await collection.insertMany(documents, { ordered: false }).catch(err => {
       if (err.code !== 11000) throw err;
       logger.warn(`Duplicate key errors were ignored during insert into ${collectionName}`);
     });
-    spinner.succeed(`Successfully processed ${documents.length} documents for collection ${collectionName}`);
+    logger.info(`Successfully processed ${documents.length} documents for collection ${collectionName}`);
   } else {
     let operations: AnyBulkWriteOperation[];
     if (conflictStrategy === 'upsert') {
-      spinner.text = `Upserting ${documents.length} documents in ${collectionName}`;
+      logger.debug(`Upserting ${documents.length} documents in ${collectionName}`);
       operations = documents.map(doc => ({ replaceOne: { filter: { _id: doc._id }, replacement: doc, upsert: true } }));
     } else {
-      spinner.text = `Skipping existing documents while inserting into ${collectionName}`;
+      logger.debug(`Skipping existing documents while inserting into ${collectionName}`);
       operations = documents.map(doc => ({ updateOne: { filter: { _id: doc._id }, update: { $setOnInsert: doc }, upsert: true } }));
     }
     const result = await collection.bulkWrite(operations);
-    spinner.succeed(`Import to ${collectionName} complete. Upserted: ${result.upsertedCount}, Inserted: ${result.insertedCount}, Modified: ${result.modifiedCount}.`);
+    logger.info(`Import to ${collectionName} complete. Upserted: ${result.upsertedCount}, Inserted: ${result.insertedCount}, Modified: ${result.modifiedCount}.`);
   }
 }
 
@@ -90,7 +89,13 @@ export async function importCollections(
     return;
   }
 
-  const spinner = ora('Starting import...').start();
+  const progressBar = new cliProgress.SingleBar({
+    format: 'Importing | {bar} | {file} | {value}/{total} files',
+    barCompleteChar: '\u2588',
+    barIncompleteChar: '\u2591',
+    hideCursor: true,
+  });
+
   const checksumMap = new Map<string, string>();
   let verificationEnabled = true;
   const importErrors: { file: string; reason: string }[] = [];
@@ -105,23 +110,26 @@ export async function importCollections(
       }
     });
     if (checksumMap.size > 0) {
-      spinner.info('Checksum manifest loaded. Verification is enabled.');
+      logger.info('Checksum manifest loaded. Verification is enabled.');
     } else {
       verificationEnabled = false;
     }
   } catch (error) {
-    spinner.warn('Checksum manifest (manifest.sha256) not found. Proceeding without verification.');
+    logger.warn('Checksum manifest (manifest.sha256) not found. Proceeding without verification.');
     verificationEnabled = false;
   }
 
+  progressBar.start(dataFiles.length, 0, { file: 'N/A' });
+
   for (const file of dataFiles) {
+    progressBar.update({ file });
     const collectionName = getCollectionName(file);
     if (!collectionName) {
       logger.warn(`Invalid file name: ${file}. Skipping.`);
+      progressBar.increment();
       continue;
     }
 
-    spinner.text = `Processing file: ${file}`;
     const filePath = path.join(config.paths.dataFolder, file);
 
     try {
@@ -129,8 +137,9 @@ export async function importCollections(
         const expectedHash = checksumMap.get(file);
         if (!expectedHash) {
           const reason = `No checksum found for ${file}. Skipping this file as manifest exists.`;
-          spinner.warn(reason);
+          logger.warn(reason);
           importErrors.push({ file, reason });
+          progressBar.increment();
           continue;
         }
 
@@ -139,35 +148,31 @@ export async function importCollections(
 
         if (actualHash !== expectedHash) {
           const reason = `Checksum mismatch for ${file}! The file may be corrupt. Skipping.`;
-          spinner.fail(reason);
-          logger.error(`Checksum mismatch for ${file}. Expected: ${expectedHash}, Got: ${actualHash}`);
+          logger.error(reason);
           importErrors.push({ file, reason: 'Checksum mismatch' });
+          progressBar.increment();
           continue;
         }
-        spinner.succeed(`Checksum for ${file} verified.`);
+        logger.info(`Checksum for ${file} verified.`);
       }
       
       const documents = await parseFileToDocuments(filePath, format);
-      await executeDbOperations(db, collectionName, documents, clearCollections, conflictStrategy, spinner);
+      await executeDbOperations(db, collectionName, documents, clearCollections, conflictStrategy);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      spinner.fail(`Error importing file ${file}: ${errorMessage}`);
       logger.error(`Error importing file ${file}: ${errorMessage}`);
       importErrors.push({ file, reason: errorMessage });
     }
+    progressBar.increment();
   }
 
-  spinner.stop();
+  progressBar.stop();
 
   if (importErrors.length > 0) {
-    const summaryHeader = '⚠️  IMPORT SUMMARY: Some files failed to import.';
-    console.log(`\n\n${'-'.repeat(summaryHeader.length + 4)}`);
-    logger.warn(summaryHeader);
-    console.log(`${'-'.repeat(summaryHeader.length + 4)}`);
+    logger.warn('⚠️ IMPORT SUMMARY: Some files failed to import.');
     for (const { file, reason } of importErrors) {
-      logger.warn(`  - File: ${file}\n    Reason: ${reason}`);
+      logger.warn(`  - File: ${file} | Reason: ${reason}`);
     }
-    console.log(`${'-'.repeat(summaryHeader.length + 4)}\n`);
   } else {
     logger.info('All files were verified and processed successfully.');
   }

@@ -1,13 +1,12 @@
 #!/usr/bin/env node
 
 import inquirer from 'inquirer';
-import ora from 'ora';
 import { URL } from 'url';
 import { MongoDBClient } from './mongodb/client.js';
 import { exportCollections } from './mongodb/export.js';
 import { importCollections, DataFormat } from './mongodb/import.js';
 import { ensureFolderExists, clearFolder } from './utils/file.js';
-import { logger } from './utils/logger.js';
+import { logger, flushLogs } from './utils/logger.js';
 import { config } from './config.js';
 
 async function promptPrimaryActions(): Promise<{
@@ -66,9 +65,8 @@ async function main() {
       await client.client.connect();
 
       if (!dbName) {
-        const spinner = ora('Fetching available databases...').start();
+        console.log('Fetching available databases...');
         const availableDbs = await client.listDatabases();
-        spinner.stop();
 
         if (availableDbs.length > 0) {
           const dbAnswer = await inquirer.prompt([
@@ -151,8 +149,9 @@ async function main() {
     }
   } catch (error) {
     logger.error(`An error occurred: ${(error as Error).message}`);
-    process.exit(1);
+    process.exitCode = 1;
   } finally {
+    flushLogs(); 
     if (client) {
       await client.close();
     }
