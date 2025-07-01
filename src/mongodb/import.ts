@@ -42,6 +42,7 @@ async function executeDbOperations(
   clearCollections: boolean,
   conflictStrategy: ConflictStrategy,
   multibar: cliProgress.MultiBar,
+  bar: cliProgress.SingleBar,
 ) {
   if (documents.length === 0) {
     logger.info(`File for ${collectionName} is empty, nothing imported`);
@@ -55,7 +56,6 @@ async function executeDbOperations(
     logger.info(`Collection ${collectionName} cleared`);
   }
 
-  const bar = multibar.create(documents.length, 0, { collection: collectionName, prefix: '⏳', speed: '0.00' });
   const batchSize = config.batchSize;
   const startTime = Date.now();
   let lastUpdateTime = 0;
@@ -151,6 +151,21 @@ export async function importCollections(
     format: `${colors.magenta('{prefix}')} ${colors.magenta('{bar}')} ${colors.blue('{percentage}%')} | ${colors.cyan('{collection}')} | {value}/{total} Files`,
   });
 
+  const progressBars: { [key: string]: cliProgress.SingleBar } = {};
+  for (const file of dataFiles) {
+    const collectionName = getCollectionName(file);
+    if (collectionName) {
+      try {
+        const documents = await parseFileToDocuments(path.join(config.paths.dataFolder, file), format);
+        if (documents.length > 0) {
+          progressBars[collectionName] = multibar.create(documents.length, 0, { collection: collectionName, prefix: '⏳', speed: '0.00' });
+        }
+      } catch (error) {
+        continue;
+      }
+    }
+  }
+
   let completedFiles = 0;
 
   for (const file of dataFiles) {
@@ -204,13 +219,15 @@ export async function importCollections(
       }
 
       const documents = await parseFileToDocuments(filePath, format);
-      await executeDbOperations(db, collectionName, documents, clearCollections, conflictStrategy, multibar);
+      const bar = progressBars[collectionName] || multibar.create(documents.length, 0, { collection: collectionName, prefix: '⏳', speed: '0.00' });
+      await executeDbOperations(db, collectionName, documents, clearCollections, conflictStrategy, multibar, bar);
 
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       logger.error(`Error importing file ${file}: ${errorMessage}`);
       importErrors.push({ file, reason: errorMessage });
-      const bar = multibar.create(0, 0, { collection: collectionName, prefix: '⚠️', speed: 'Error' });
+      const bar = progressBars[collectionName] || multibar.create(0, 0, { collection: collectionName, prefix: '⚠️', speed: 'Error' });
+      bar.update(0, { prefix: '⚠️', speed: 'Error' });
       multibar.remove(bar);
     }
 
@@ -231,13 +248,12 @@ export async function importCollections(
   logger.info(`Successful Imports: ${dataFiles.length - importErrors.length}`);
   logger.info(`Failed Imports: ${importErrors.length}`);
   if (importErrors.length > 0) {
-    logger.warn('  Failed Files:');
+    logger.warn('Failed Files:');
     for (const { file, reason } of importErrors) {
       logger.warn(`    - ${file}: ${reason}`);
     }
   }
   logger.info(`Verification Enabled: ${verificationEnabled}`);
   logger.info(`Total Time: ${totalTime} seconds`);
-
   logger.info('Import completed');
 }

@@ -33,8 +33,16 @@ export async function exportCollections(db: Db, format: DataFormat): Promise<voi
   const overallBar = multibar.create(totalCollections, 0, {
     collection: 'Overall Progress',
     prefix: '📊',
-    format: `${colors.magenta('{prefix}')} ${colors.magenta('{bar}')} ${colors.blue('{percentage}%')} | ${colors.cyan('{collection}')} | {value}/{total} Collections`,
+    format: `${colors.yellow('{prefix}')} ${colors.yellow('{bar}')} ${colors.blue('{percentage}%')} | ${colors.cyan('{collection}')} | {value}/{total} Collections`,
   });
+
+  const progressBars: { [key: string]: cliProgress.SingleBar } = {};
+  for (const { name } of collections) {
+    const totalDocuments = await db.collection(name).countDocuments();
+    if (totalDocuments > 0) {
+      progressBars[name] = multibar.create(totalDocuments, 0, { collection: name, speed: '0.00', prefix: '⏳' });
+    }
+  }
 
   const checksums: { [key: string]: string } = {};
   let completedCollections = 0;
@@ -58,7 +66,7 @@ export async function exportCollections(db: Db, format: DataFormat): Promise<voi
       return;
     }
 
-    const bar = multibar.create(totalDocuments, 0, { collection: name, speed: '0.00', prefix: '⏳' });
+    const bar = progressBars[name];
     const startCollectionTime = Date.now();
     let processedDocuments = 0;
     let lastUpdateTime = 0;
@@ -82,6 +90,7 @@ export async function exportCollections(db: Db, format: DataFormat): Promise<voi
           lastUpdateTime = currentTime;
         }
       }
+
       const elapsedTime = (Date.now() - startCollectionTime) / 1000;
       const speed = (processedDocuments / (elapsedTime || 1)).toFixed(2);
       bar.update(processedDocuments, { speed, prefix: '⏳' });
@@ -131,18 +140,18 @@ export async function exportCollections(db: Db, format: DataFormat): Promise<voi
 
   const totalTime = ((Date.now() - startTime) / 1000).toFixed(2);
   logger.info('\n📊 Export Summary:');
-  logger.info(`  Total Collections: ${collections.length}`);
-  logger.info(`  Successful Exports: ${collections.length - exportErrors.length}`);
-  logger.info(`  Failed Exports: ${exportErrors.length}`);
+  logger.info(`Total Collections: ${collections.length}`);
+  logger.info(`Successful Exports: ${collections.length - exportErrors.length}`);
+  logger.info(`Failed Exports: ${exportErrors.length}`);
   if (exportErrors.length > 0) {
     logger.warn('  Failed Collections:');
     for (const { collection, reason } of exportErrors) {
       logger.warn(`    - ${collection}: ${reason}`);
     }
   }
-  logger.info(`  Checksums Generated: ${Object.keys(checksums).length}`);
-  logger.info(`  Output Folder: ${config.paths.dataFolder}`);
-  logger.info(`  Total Time: ${totalTime} seconds`);
+  logger.info(`Checksums Generated: ${Object.keys(checksums).length}`);
+  logger.info(`Output Folder: ${config.paths.dataFolder}`);
+  logger.info(`Total Time: ${totalTime} seconds`);
 
   logger.info('Export completed');
 }
