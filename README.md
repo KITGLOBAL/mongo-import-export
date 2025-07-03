@@ -7,50 +7,85 @@
 ![Build](https://img.shields.io/badge/build-passing-brightgreen)
 ![Platform](https://img.shields.io/badge/platform-cli-lightgrey)
 
-🚀 mongo-import-export
+## 🚀 mongo-import-export
 
 A modern and powerful CLI tool to import and export MongoDB collections to and from JSON and CSV files. Perfect for backups, migrations, and local development.
 
+---
+
 ## ✨ Features & Key Advantages
-This tool was built to make MongoDB data management as simple and effective as possible.
 
-1. Interactive & User-Friendly: A step-by-step interactive prompt guides you through the entire import or export process with simple questions.
+This tool was built to make MongoDB data management as simple and effective as possible:
 
-2. Multiple Format Support: Export your data to JSON for full data fidelity (including MongoDB-specific types like ObjectId and Date) or to CSV for easy use in spreadsheet editors.
+### 1. 🎛️ Interactive & User-Friendly
 
-3. Data Integrity Guarantee: During export, a manifest.sha256 file with checksums is automatically created. During import, these checksums are verified to ensure your files have not been corrupted or modified, giving you peace of mind.
+- A step-by-step **interactive prompt** guides you through the entire import or export process with clear questions — no need to remember complex commands.
 
-4. High Performance with Streaming: Thanks to stream processing for JSON files, the utility can handle very large datasets (many gigabytes) without consuming excessive memory. This is perfect for large-scale backups and migrations.
+### 2. 📄 Multiple Format Support
 
-5. Intelligent Database Selection: If a database is not specified in your connection string, the tool will automatically fetch a list of available databases on the server and let you choose the one you need.
+- **JSON** — preserves full MongoDB fidelity (e.g., `ObjectId`, `Date`)
+- **CSV** — ideal for spreadsheets like Excel or Google Sheets
 
-6. Advanced Conflict Resolution: Gain full control over your data during imports with multiple strategies for handling duplicate documents:
-```bash
-upsert: Replaces existing documents or inserts new ones if they don't exist.
+### 3. 🛡️ Data Integrity Guarantee
+
+- Each export includes a `manifest.sha256` with checksums
+- During import, checksums are verified
+- Ensures files haven’t been corrupted or tampered with
+
+### 4. ⚡ High Performance with Streaming
+
+- Stream-based processing for JSON files
+- Handles datasets of **many gigabytes**
+- Keeps memory usage minimal — perfect for large-scale backups/migrations
+
+### 5. 🧠 Intelligent Database Selection
+
+- If no database is specified in your connection string:
+  - Connects to MongoDB server
+  - Lists all available databases
+  - Lets you choose interactively
+
+### 6. 🔄 Advanced Conflict Resolution (During Import)
+
+- `upsert`: Replace if exists, insert if not
+- `skip`: Ignore documents that already exist
+- `insert` *(default)*: Fail on duplicate `_id`
+
+### 7. 📊 Clear Progress Indicators
+
+- Real-time progress bars per collection
+- Clean and informative CLI output
+- Helpful for long-running operations
+
+### 8. ⚙️ Configurable via `.env` File
+
+Set default values and skip repetitive input:
+
+```env
+DATA_FOLDER=./data
+BATCH_SIZE=1000
+LOG_LEVEL=debug
+LOG_FILE=mongo_script_log.txt
 ```
-```bash
-skip: Ignores (skips) documents that already exist in the collection.
-```
-```bash
-insert: The default mode, which fails if a duplicate _id is found.
-```
-7. Data Integrity Verification: During export, a manifest.sha256 file is created with checksums for all files. During import, these checksums are verified to ensure your data has not been corrupted.
 
-8. Clear Progress Indicators: Watch the export or import process in real-time with clean and informative progress bars for each collection.
-
-9. Configuration via .env: Configure your settings once using a .env file to avoid re-entering your connection details every time.
-
+---
 
 ## 📦 Installation
 
-Global (recommended for CLI usage)
+**Global (recommended for CLI usage):**
+
 ```bash
 npm install -g @kitapp-developers/mongo-import-export@latest
 ```
-Local (as project dependency)
+
+**Local (as project dependency):**
+
 ```bash
 npm install @kitapp-developers/mongo-import-export@latest
 ```
+
+---
+
 ## 🛠️ Usage
 
 Run the CLI:
@@ -58,34 +93,37 @@ Run the CLI:
 ```bash
 mongo-import-export
 ```
+
+Or use without global install:
+
 ```bash
 npx mongo-import-export
 ```
-An interactive prompt will guide you through:
 
-1. Select Action: Choose between Export and Import.
+The CLI will guide you through:
 
-2. Enter MongoDB URI: Provide the connection string to your MongoDB server.
+1. **Select Action:** Import or Export
+2. **MongoDB URI:**
+
 ```bash
 mongodb://user:password@host:port/
 ```
-3. Select Format: Choose between json and csv.
 
-4. Database Selection (for Export):
+3. **Select Format:** `json` or `csv`
+4. **Database Selection:**
+   - If URI includes a DB, it's used
+   - Otherwise, select from list
 
-5. If your URI included a database name (e.g., .../my-database), it will be used automatically.
+**For Import:**
 
-6. If not, the tool will present a list of available databases for you to choose from.
+- Enter target DB name
+- Choose whether to clear collections
+- Choose conflict resolution strategy: Upsert / Skip / Insert
 
-Database & Strategy (for Import):
-
-1. Enter the name of the target database.
-
-2. Decide if you want to clear the collections before importing.
-
-3. If not clearing, choose a conflict resolution strategy (Upsert, Skip, or Insert).
+---
 
 ## 🧑‍💻 Example Workflow
+
 ```bash
 ? Select action: Import data into a database
 ? Enter MongoDB connection URI: mongodb://localhost:27017
@@ -93,33 +131,39 @@ Database & Strategy (for Import):
 ? Enter database name to import to: myNewDatabase
 ? Clear collections before importing? Yes
 ```
+
+---
+
 ## 🎬 Demo
 
-![CLI demo](./assets/demo.gif)
+
+
+---
 
 ## 👀 Configuration
-You can optionally create a .env file in your project to set default values for the CLI prompts. Example:
 
-```bash
-MONGO_URI=mongodb://localhost:27017
-# Default database name (optional)
-DB_NAME=MyDatabase
-# Folder for exported JSON files
+Optional `.env` file for defaults:
+
+```env
 DATA_FOLDER=./data
-# Number of documents per import batch
 BATCH_SIZE=1000
-# Logging level (e.g., debug, info, warn, error)
 LOG_LEVEL=info
-# Log file path
 LOG_FILE=mongo_script_log.txt
 ```
-Place the .env file in the same directory where you run the CLI.
+
+Place `.env` in the same directory where you run the CLI.
+
+---
 
 ## ⚙️ Requirements
+
 1. Node.js v20 or higher
 2. MongoDB server accessible via the provided connection URL
-3. Your smile
+3. Your smile 😊
+
+---
 
 ## 📖 License
-MIT
+
+MIT License
 
