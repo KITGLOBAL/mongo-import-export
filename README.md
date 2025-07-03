@@ -7,43 +7,59 @@
 ![Build](https://img.shields.io/badge/build-passing-brightgreen)
 ![Platform](https://img.shields.io/badge/platform-cli-lightgrey)
 
-A powerful and easy-to-use CLI tool to import/export MongoDB collections to/from JSON and CSV files. Perfect for quick backups, migrations, and local development.
+🚀 mongo-import-export
 
-## Features
-Interactive & User-Friendly: A step-by-step interactive prompt guides you through the entire process.
+A modern and powerful CLI tool to import and export MongoDB collections to and from JSON and CSV files. Perfect for backups, migrations, and local development.
 
-Multiple Formats: Supports both JSON for full data fidelity and CSV for compatibility with spreadsheets and other tools.
+## ✨ Features & Key Advantages
+This tool was built to make MongoDB data management as simple and effective as possible.
 
-Intelligent Database Selection: If a database is not specified in your connection string, the tool will automatically fetch a list of available databases and let you choose one for export.
+1. Interactive & User-Friendly: A step-by-step interactive prompt guides you through the entire import or export process with simple questions.
 
-Advanced Conflict Resolution: Take full control of your data during imports with multiple strategies for handling duplicate documents:
+2. Multiple Format Support: Export your data to JSON for full data fidelity (including MongoDB-specific types like ObjectId and Date) or to CSV for easy use in spreadsheet editors.
 
-Upsert: Replaces existing documents or inserts them if they are new.
+3. Data Integrity Guarantee: During export, a manifest.sha256 file with checksums is automatically created. During import, these checksums are verified to ensure your files have not been corrupted or modified, giving you peace of mind.
 
-Skip: Ignores documents that already exist in the collection.
+4. High Performance with Streaming: Thanks to stream processing for JSON files, the utility can handle very large datasets (many gigabytes) without consuming excessive memory. This is perfect for large-scale backups and migrations.
 
-Insert: The default mode, which will fail if a duplicate _id is found.
+5. Intelligent Database Selection: If a database is not specified in your connection string, the tool will automatically fetch a list of available databases on the server and let you choose the one you need.
 
-Progress Indicators: See what's happening during long operations with a clean and clear progress spinner.
+6. Advanced Conflict Resolution: Gain full control over your data during imports with multiple strategies for handling duplicate documents:
+```bash
+upsert: Replaces existing documents or inserts new ones if they don't exist.
+```
+```bash
+skip: Ignores (skips) documents that already exist in the collection.
+```
+```bash
+insert: The default mode, which fails if a duplicate _id is found.
+```
+7. Data Integrity Verification: During export, a manifest.sha256 file is created with checksums for all files. During import, these checksums are verified to ensure your data has not been corrupted.
 
-Environment Configuration: Pre-configure your settings like connection URI and default database name using a .env file.
+8. Clear Progress Indicators: Watch the export or import process in real-time with clean and informative progress bars for each collection.
 
-## Installation
+9. Configuration via .env: Configure your settings once using a .env file to avoid re-entering your connection details every time.
+
+
+## 📦 Installation
 
 Global (recommended for CLI usage)
 ```bash
-npm install -g @kitapp-developers/mongo-import-export
+npm install -g @kitapp-developers/mongo-import-export@latest
 ```
 Local (as project dependency)
 ```bash
-npm install @kitapp-developers/mongo-import-export
+npm install @kitapp-developers/mongo-import-export@latest
 ```
-## Usage
+## 🛠️ Usage
 
 Run the CLI:
 
 ```bash
 mongo-import-export
+```
+```bash
+npx mongo-import-export
 ```
 An interactive prompt will guide you through:
 
@@ -69,35 +85,19 @@ Database & Strategy (for Import):
 
 3. If not clearing, choose a conflict resolution strategy (Upsert, Skip, or Insert).
 
-## Example
+## 🧑‍💻 Example Workflow
 ```bash
-? Select action (0 - Export, 1 - Import): 1 - Import
-? Enter MongoDB connection URL: mongodb://user:password@host:port/
+? Select action: Import data into a database
+? Enter MongoDB connection URI: mongodb://localhost:27017
 ? Select data format: json
-? Enter database name to import to: newDatabase
-? Clear collections before importing? (This will ignore conflict strategy) Yes
-2025-06-30T09:32:12.192Z [INFO]: Connected to MongoDB
-⠋ Starting import...2025-06-30T09:32:12.259Z [INFO]: Collection admins cleared
-✔ Successfully processed 2 documents for collection admins
-2025-06-30T09:32:12.371Z [INFO]: Collection products cleared
-✔ Successfully processed 2 documents for collection products
-2025-06-30T09:32:12.469Z [INFO]: Collection reports cleared
-✔ Successfully processed 1 documents for collection reports
-2025-06-30T09:32:12.577Z [INFO]: Collection setInfos cleared
-✔ Successfully processed 16 documents for collection setInfos
-2025-06-30T09:32:12.734Z [INFO]: Collection settings cleared
-✔ Successfully processed 1 documents for collection settings
-2025-06-30T09:32:12.842Z [INFO]: Collection themes cleared
-✔ Successfully processed 168 documents for collection themes
-2025-06-30T09:32:12.952Z [INFO]: Collection userSessions cleared
-✔ Successfully processed 1 documents for collection userSessions
-2025-06-30T09:32:13.037Z [INFO]: Collection users cleared
-✔ Successfully processed 1 documents for collection users
-2025-06-30T09:32:13.094Z [INFO]: Import completed
-2025-06-30T09:32:13.099Z [INFO]: MongoDB connection closed
+? Enter database name to import to: myNewDatabase
+? Clear collections before importing? Yes
 ```
+## 🎬 Demo
 
-## Configuration
+![CLI demo](./assets/demo.gif)
+
+## 👀 Configuration
 You can optionally create a .env file in your project to set default values for the CLI prompts. Example:
 
 ```bash
@@ -115,11 +115,11 @@ LOG_FILE=mongo_script_log.txt
 ```
 Place the .env file in the same directory where you run the CLI.
 
-## Requirements
+## ⚙️ Requirements
 1. Node.js v20 or higher
 2. MongoDB server accessible via the provided connection URL
 3. Your smile
 
-## License
+## 📖 License
 MIT
 
