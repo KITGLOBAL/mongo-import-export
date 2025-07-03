@@ -1,0 +1,18 @@
+# Ignore assets
+assets/
+media/
+*.gif
+*.mp4
+
+# Ignore dev stuff
+src/
+tests/
+data/
+test/
+coverage/
+.env
+*.log
+tsconfig.json
+.eslintrc.js
+.prettierrc
+.vscode/
