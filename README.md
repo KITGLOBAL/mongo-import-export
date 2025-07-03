@@ -136,9 +136,7 @@ mongodb://user:password@host:port/
 
 ## 🎬 Demo
 
-
-
----
+![CLI demo](./assets/demo.gif)
 
 ## 👀 Configuration
 
