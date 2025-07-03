@@ -3,6 +3,8 @@ assets/
 media/
 *.gif
 *.mp4
+*.txt
+.md
 
 # Ignore dev stuff
 src/
