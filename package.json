@@ -1,0 +1,100 @@
+{
+  "name": "@kitapp-developers/mongo-import-export",
+  "version": "1.1.3",
+  "description": "A modern CLI tool to import/export MongoDB collections to and from JSON or CSV — great for backups, migrations, and local development.",
+  "type": "module",
+  "main": "dist/cli.js",
+  "bin": {
+    "mongo-import-export": "dist/cli.js"
+  },
+  "scripts": {
+    "start": "node dist/cli.js",
+    "dev": "node --loader ts-node/esm src/cli.ts",
+    "build": "npm run clean && tsc",
+    "clean": "rm -rf dist",
+    "lint": "eslint src --ext .ts",
+    "prepare": "npm run build"
+  },
+  "keywords": [
+    "mongo",
+    "mongodb",
+    "cli",
+    "command-line",
+    "import",
+    "export",
+    "json",
+    "dump",
+    "restore",
+    "backup",
+    "database",
+    "migration",
+    "data",
+    "data-export",
+    "data-import",
+    "mongo-cli",
+    "mongo-tools",
+    "devtool",
+    "automation",
+    "developer-tool",
+    "nodejs",
+    "batch",
+    "interactive",
+    "prompt",
+    "backup-tool",
+    "mongodb-backup",
+    "mongodb-restore",
+    "mongo-backup",
+    "mongo-restore",
+    "dump-tool",
+    "script",
+    "utility",
+    "mongo-dump",
+    "mongoimport",
+    "mongoexport",
+    "csv"
+  ],
+  "author": {
+    "name": "Oleksandr Parkhomenko",
+    "email": "kitapp.developers@gmail.com",
+    "url": "https://github.com/KITGLOBAL"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/KITGLOBAL/mongo-import-export.git"
+  },
+  "bugs": {
+    "url": "https://github.com/KITGLOBAL/mongo-import-export/issues"
+  },
+  "homepage": "https://github.com/KITGLOBAL/mongo-import-export#readme",
+  "dependencies": {
+    "ansi-colors": "^4.1.3",
+    "cli-progress": "^3.12.0",
+    "colors": "^1.4.0",
+    "crypto": "^1.0.1",
+    "dotenv": "^16.4.5",
+    "inquirer": "^9.2.12",
+    "mongodb": "^6.8.0",
+    "ora": "^8.2.0",
+    "papaparse": "^5.5.3",
+    "stream-json": "^1.9.1",
+    "winston": "^3.13.1"
+  },
+  "devDependencies": {
+    "@types/cli-progress": "^3.11.6",
+    "@types/inquirer": "^9.0.7",
+    "@types/mongodb": "^4.0.7",
+    "@types/node": "^20.14.9",
+    "@types/papaparse": "^5.3.16",
+    "@types/stream-json": "^1.7.8",
+    "@types/winston": "^2.4.4",
+    "@typescript-eslint/eslint-plugin": "^7.13.1",
+    "@typescript-eslint/parser": "^7.13.1",
+    "eslint": "^8.57.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.5.2"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

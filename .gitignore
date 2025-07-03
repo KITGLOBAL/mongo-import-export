@@ -36,6 +36,7 @@ test-output/
 # Build
 dist/
 build/
+data/
 .tmp/
 temp/
 
@@ -63,7 +64,6 @@ docker-compose.override.yml
 *.bak
 *.orig
 *.rej
-*.json
 *.txt
 *.csv
 *.sha256

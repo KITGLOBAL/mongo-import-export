@@ -1,6 +1,6 @@
 import * as crypto from 'crypto';
 import { Db } from 'mongodb';
-import { promises as fs } from 'fs';
+import { promises as fs, createWriteStream } from 'fs';
 import * as path from 'path';
 import { logger } from '../utils/logger.js';
 import cliProgress from 'cli-progress';
@@ -8,7 +8,7 @@ import colors from 'ansi-colors';
 import { DataFormat } from './import.js';
 import { config } from '../config.js';
 import Papa from 'papaparse';
-import { prepareForCSVExport } from './convert.js';
+import { prepareForCSVExport, prepareForJSONExport } from './convert.js';
 
 export async function exportCollections(db: Db, format: DataFormat): Promise<void> {
   const collections = await db.listCollections().toArray();
@@ -48,86 +48,103 @@ export async function exportCollections(db: Db, format: DataFormat): Promise<voi
   let completedCollections = 0;
   const exportErrors: { collection: string; reason: string }[] = [];
   const startTime = Date.now();
-  let lastOverallUpdateTime = 0;
-  const overallUpdateInterval = 1000;
-
-  await Promise.all(collections.map(async ({ name }) => {
+  
+  for (const { name } of collections) {
     const collection = db.collection(name);
     const totalDocuments = await collection.countDocuments();
+    const fileName = `${name}.${format}`;
+    const filePath = path.join(config.paths.dataFolder, fileName);
 
     if (totalDocuments === 0) {
       logger.info(`Collection ${name} is empty, skipping.`);
+      const emptyContent = format === 'json' ? '[]' : '';
+      await fs.writeFile(filePath, emptyContent);
+      checksums[fileName] = crypto.createHash('sha256').update(emptyContent).digest('hex');
       completedCollections++;
-      const currentTime = Date.now();
-      if (currentTime - lastOverallUpdateTime >= overallUpdateInterval) {
-        overallBar.update(completedCollections);
-        lastOverallUpdateTime = currentTime;
-      }
-      return;
+      overallBar.update(completedCollections);
+      continue;
     }
 
     const bar = progressBars[name];
     const startCollectionTime = Date.now();
-    let processedDocuments = 0;
     let lastUpdateTime = 0;
     const updateInterval = 100;
-
-    const fileName = `${name}.${format}`;
-    const filePath = path.join(config.paths.dataFolder, fileName);
-
+    
     try {
-      const cursor = collection.find({});
-      const documents = [];
+      let processedDocuments = 0;
+      if (format === 'json') {
+        const cursor = collection.find();
+        const fileWriteStream = createWriteStream(filePath, 'utf8');
+        fileWriteStream.write('[\n');
+        let isFirstDoc = true;
 
-      for await (const doc of cursor) {
-        documents.push(doc);
-        processedDocuments = documents.length;
-        const currentTime = Date.now();
-        if (currentTime - lastUpdateTime >= updateInterval) {
-          const elapsedTime = (currentTime - startCollectionTime) / 1000;
-          const speed = (processedDocuments / (elapsedTime || 1)).toFixed(2);
-          bar.update(processedDocuments, { speed, prefix: '⏳' });
-          lastUpdateTime = currentTime;
+        for await (const doc of cursor) {
+          if (!isFirstDoc) {
+            fileWriteStream.write(',\n');
+          }
+          const preparedDoc = prepareForJSONExport(doc);
+          fileWriteStream.write(JSON.stringify(preparedDoc, null, 2));
+          isFirstDoc = false;
+          processedDocuments++;
+          
+          const currentTime = Date.now();
+          if (currentTime - lastUpdateTime >= updateInterval || processedDocuments === totalDocuments) {
+            const elapsedTime = (currentTime - startCollectionTime) / 1000;
+            const speed = (processedDocuments / (elapsedTime || 1)).toFixed(2);
+            bar.update(processedDocuments, { speed });
+            lastUpdateTime = currentTime;
+          }
         }
-      }
+        
+        fileWriteStream.write('\n]');
+        fileWriteStream.end();
 
-      const elapsedTime = (Date.now() - startCollectionTime) / 1000;
-      const speed = (processedDocuments / (elapsedTime || 1)).toFixed(2);
-      bar.update(processedDocuments, { speed, prefix: '⏳' });
+        await new Promise<void>((resolve, reject) => {
+          fileWriteStream.on('finish', resolve);
+          fileWriteStream.on('error', reject);
+        });
 
-      let fileContent: string;
-      if (format === 'csv') {
-        fileContent = Papa.unparse(prepareForCSVExport(documents));
+        bar.update(processedDocuments, { prefix: '✅' });
+        logger.info(`Exported ${processedDocuments} documents from ${name}`);
+
       } else {
-        fileContent = JSON.stringify(documents, null, 2);
+        const cursor = collection.find();
+        const documents = [];
+        
+        for await (const doc of cursor) {
+            documents.push(doc);
+            processedDocuments++;
+            const currentTime = Date.now();
+            if (currentTime - lastUpdateTime >= updateInterval || processedDocuments === totalDocuments) {
+                const elapsedTime = (currentTime - startCollectionTime) / 1000;
+                const speed = (processedDocuments / (elapsedTime || 1)).toFixed(2);
+                bar.update(processedDocuments, { speed });
+                lastUpdateTime = currentTime;
+            }
+        }
+        const fileContent = Papa.unparse(prepareForCSVExport(documents));
+        await fs.writeFile(filePath, fileContent);
+        logger.info(`Exported ${documents.length} documents from ${name}`);
+        bar.update(documents.length, { prefix: '✅' });
       }
-
-      const hash = crypto.createHash('sha256').update(fileContent);
-      checksums[fileName] = hash.digest('hex');
-
-      await fs.writeFile(filePath, fileContent);
-      logger.info(`Exported ${processedDocuments} documents from ${name}`);
-      bar.update(processedDocuments, { prefix: '✅' });
+      
+      const finalFileContent = await fs.readFile(filePath);
+      checksums[fileName] = crypto.createHash('sha256').update(finalFileContent).digest('hex');
 
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       logger.error(`Error exporting collection ${name}: ${errorMessage}`);
       exportErrors.push({ collection: name, reason: errorMessage });
-      bar.update(processedDocuments, { prefix: '⚠️', speed: 'Error' });
+      bar.stop();
       multibar.remove(bar);
     }
 
     completedCollections++;
-    const currentTime = Date.now();
-    if (currentTime - lastOverallUpdateTime >= overallUpdateInterval) {
-      overallBar.update(completedCollections);
-      lastOverallUpdateTime = currentTime;
-    }
-  }));
-
-  overallBar.update(completedCollections);
+    overallBar.update(completedCollections);
+  }
+  
   multibar.stop();
-
+  
   if (Object.keys(checksums).length > 0) {
     logger.info('Generating checksum file...');
     const manifestPath = path.join(config.paths.dataFolder, 'manifest.sha256');

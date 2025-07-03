@@ -80,7 +80,7 @@ export function convertCSVRow(row: { [key: string]: any }): Document {
 }
 
 /**
- * @param documents array docs fron MongoDB.
+ * @param documents
  * @returns
  */
 export function prepareForCSVExport(documents: Document[]): Document[] {
@@ -100,4 +100,29 @@ export function prepareForCSVExport(documents: Document[]): Document[] {
     }
     return newDoc;
   });
+}
+
+/**
+ * 
+ * @param doc
+ * @returns
+ */
+export function prepareForJSONExport(doc: any): any {
+  if (Array.isArray(doc)) {
+    return doc.map(prepareForJSONExport);
+  }
+  if (doc instanceof ObjectId) {
+    return { $oid: doc.toHexString() };
+  }
+  if (doc instanceof Date) {
+    return { $date: doc.toISOString() };
+  }
+  if (doc !== null && typeof doc === 'object') {
+    const result: { [key: string]: any } = {};
+    for (const [key, value] of Object.entries(doc)) {
+      result[key] = prepareForJSONExport(value);
+    }
+    return result;
+  }
+  return doc;
 }
